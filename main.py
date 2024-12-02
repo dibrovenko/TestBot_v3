@@ -77,18 +77,12 @@ async def main():
     # Получаем WebSocket соединение (создается только один раз)
     websocket = await ws_client.connect()
 
-
-
-    await handle_messages(websocket=websocket)
-    # Закрываем WebSocket соединение при завершении работы
-    await ws_client.close()
-
-    """try:
+    try:
         await handle_messages(websocket=websocket)
         # Закрываем WebSocket соединение при завершении работы
         await ws_client.close()
     except:
-        logger.critical("Завершение программы... ")"""
+        logger.critical("Завершение программы... ")
 
     # Даем время на выполнение задач
     await trade_queue.join()
