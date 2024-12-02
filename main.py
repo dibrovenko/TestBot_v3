@@ -87,6 +87,7 @@ async def main():
     # Даем время на выполнение задач
     await trade_queue.join()
 
+
 # Запуск главной функции
 if __name__ == "__main__":
     asyncio.run(main())

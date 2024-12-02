@@ -1,17 +1,21 @@
-token_config = {
-    "time_window": 40,  # Время окна в секундах
-    "min_buyers": 5,  # Минимальное количество уникальных покупателей
-    "min_transactions": 12  # Минимальное количество сделок для анализа
-}
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 trade_config = {
-    "public_key": "public_key",
-    "private_key": "private_key",
+    "public_key": os.getenv("PUBLIC_KEY"),
+    "private_key": os.getenv("PRIVATE_KEY"),
     "priority_fee": 0.0005,
     "sell_multiplier": 1.4,
     "sell_multiplier_with_social_activity": 1.7,
     "amount": 100
+}
 
+token_config = {
+    "time_window": 40,  # Время окна в секундах
+    "min_buyers": 5,  # Минимальное количество уникальных покупателей
+    "min_transactions": 12  # Минимальное количество сделок для анализа
 }
 
 handle_messages_config = {
