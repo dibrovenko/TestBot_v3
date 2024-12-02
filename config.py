@@ -7,20 +7,21 @@ trade_config = {
     "public_key": os.getenv("PUBLIC_KEY"),
     "private_key": os.getenv("PRIVATE_KEY"),
     "priority_fee": 0.0005,
-    "sell_multiplier": 1.4,
-    "sell_multiplier_with_social_activity": 1.7,
+    "slippage": 2,
+    "sell_multiplier": 1.1,
+    "sell_multiplier_with_social_activity": 1.1,
     "amount": 100
 }
 
 token_config = {
-    "time_window": 40,  # Время окна в секундах
-    "min_buyers": 5,  # Минимальное количество уникальных покупателей
-    "min_transactions": 12  # Минимальное количество сделок для анализа
+    "time_window": 30,  # Время в секундах окна после открытия токена
+    "min_buyers": 1,  # Минимальное количество уникальных покупателей, которые должны быть в time_window
+    "min_transactions": 5  # Минимальное количество сделок для анализа, которые должны быть в time_window
 }
 
 handle_messages_config = {
-    "max_tokens": 10,
-    "timeout_duration": 100
+    "max_tokens": 20,  # Количество токенов, за которыми нужно следить при их открытии
+    "timeout_duration": 100  # Через сколько секунд закрывается соединение, если нет обновлений от pumpfun
 }
 
 config = {

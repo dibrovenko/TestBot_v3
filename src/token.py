@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class Token:
     history_transaction = []
-    my_trades = []
+    my_transaction = []
     buyers = set()  # Хранение уникальных покупателей
     inactive_task_flag = True
     price_per_purchased_token = None
@@ -67,17 +67,18 @@ class Token:
 
         # добавляем информацию, если мы покупали
         if transaction["traderPublicKey"] == trade_config["public_key"]:
-            self.my_trades.append(transaction_with_timestamp)
+            self.my_transaction.append(transaction_with_timestamp)
             if transaction["txType"] == "buy":
-                self.inactive_task_flag = True
                 # Рассчитываем цену одного купленного токена
                 self.price_per_purchased_token = transaction["vSolInBondingCurve"] / transaction[
                     "vTokensInBondingCurve"]
+                self.inactive_task_flag = True
                 logger.info(f"Price per purchased token: {self.price_per_purchased_token}")
             elif transaction["txType"] == "sell":
                 # Рассчитываем цену одного проданного токена
                 self.price_per_sold_token = transaction["vSolInBondingCurve"] / transaction["vTokensInBondingCurve"]
-                logger.info(f"Price per sold token: {self.price_per_sold_token}")
+                logger.info(
+                    f"Price per sold token: {self.price_per_sold_token}, profit: {self.price_per_sold_token - self.price_per_purchased_token}")
                 from src.update_stream import unsubscribe_token_trade
                 asyncio.create_task(unsubscribe_token_trade(token_address=self.mint))
 
@@ -87,7 +88,7 @@ class Token:
 
     def control_actions(self, transaction):
         # проверяем были ли ранее сделки с этим токеном и не вополняются ли транзакции по нему сейчас
-        if self.my_trades and self.inactive_task_flag:
+        if self.my_transaction and self.inactive_task_flag:
             price_for_last_transaction = transaction["vSolInBondingCurve"] / transaction["vTokensInBondingCurve"]
             if self.sell_multiplier > price_for_last_transaction / self.price_per_purchased_token:
                 self.inactive_task_flag = False

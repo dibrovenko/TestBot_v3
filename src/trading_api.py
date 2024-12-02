@@ -10,6 +10,10 @@ from solders.rpc.requests import SendVersionedTransaction
 from solders.rpc.config import RpcSendTransactionConfig
 from asyncio import Queue
 from config import trade_config
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List, Optional
+
 
 
 # Настройка логирования
@@ -20,84 +24,91 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class TradeResult:
+    time: int  # Unix timestamp
+    action: str
+    mint: str
+    amount: float
+    tx_signature: Optional[str]
+    response_content: Optional[str]
+
+
 class TokenTradingAPI:
+    trade_api_url = "https://pumpportal.fun/api/trade-local"  # URL для API торговли
+    rpc_endpoint_url = "https://api.mainnet-beta.solana.com/"  # RPC-эндпоинт
+    trades_result: List[TradeResult] = []
+
     def __init__(self, trade_queue: Queue):
         self.config = trade_config
         self.trade_queue = trade_queue
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
-        self.tokens_to_sell = {}
 
-    async def _make_transaction(self, url, payload):
+    async def _make_transaction(self, url, payload, session):
         """Отправляет запрос на выполнение транзакции (покупка или продажа)."""
         logger.info(f"Отправка запроса на {url} с данными {payload}")
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(url, json=payload, ssl=self.ssl_context) as response:
-                    if response.status == 200:
-                        logger.info(f"Успешный ответ от {url}")
-                        return await response.read()
-                    else:
-                        logger.error(f"Ошибка при выполнении запроса: {response.status}")
-                        return None
-            except Exception as e:
-                logger.exception(f"Исключение при выполнении запроса: {e}")
-                return None
+        try:
+            async with session.post(url, json=payload, ssl=self.ssl_context) as response:
+                if response.status == 200:
+                    logger.info(f"Успешный ответ от {url}")
+                    return await response.read()
+                else:
+                    logger.error(f"Ошибка при выполнении запроса: {response.status}")
+                    return None
+        except Exception as e:
+            logger.exception(f"Исключение при выполнении запроса: {e}")
+            return None
 
-    async def _process_transaction(self, response_content, mint, action, amount=None):
+    async def _process_transaction(self, response_content, mint, action, amount, session):
         """Обрабатывает транзакцию и обновляет состояние токенов."""
         logger.info(f"Обработка транзакции для {mint} с действием {action}")
         keypair = Keypair.from_base58_string(self.config.get("private_key"))
         tx = VersionedTransaction(VersionedTransaction.from_bytes(response_content).message, [keypair])
         commitment = CommitmentLevel.Confirmed
         cfg = RpcSendTransactionConfig(preflight_commitment=commitment)
-
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(
-                    url="https://api.mainnet-beta.solana.com/",
-                    headers={"Content-Type": "application/json"},
-                    data=SendVersionedTransaction(tx, cfg).to_json(),
-                    ssl=self.ssl_context
-                ) as rpc_response:
-                    if rpc_response.status == 200:
-                        rpc_res = await rpc_response.json()
-                        tx_signature = rpc_res.get('result')
-                        if tx_signature:
-                            logger.info(f"Транзакция успешно выполнена: https://solscan.io/tx/{tx_signature}")
-                            if action == "buy":
-                                self.tokens_to_sell[mint] = {"amount": amount, "timestamp": time.time()}
-                                logger.info(f"Добавлен токен {mint} в список на покупку: {amount}")
-                            elif action == "sell":
-                                self.tokens_to_sell.pop(mint, None)
-                                logger.info(f"Добавлен токен {mint} в список на продажу: {amount}")
-                        else:
-                            logger.error(f"Транзакция {action} не выполнена: {rpc_res}, токен {mint}")
+        try:
+            async with session.post(
+                url=self.rpc_endpoint_url,
+                headers={"Content-Type": "application/json"},
+                data=SendVersionedTransaction(tx, cfg).to_json(),
+                ssl=self.ssl_context
+            ) as rpc_response:
+                if rpc_response.status == 200:
+                    rpc_res = await rpc_response.json()
+                    tx_signature = rpc_res.get('result')
+                    if tx_signature:
+                        logger.info(f"Транзакция {action} успешно выполнена: https://solscan.io/tx/{tx_signature}")
+                        return tx_signature
                     else:
-                        logger.error(f"Ошибка выполнения RPC-запроса: {rpc_response.status}")
-            except Exception as e:
-                logger.exception(f"Исключение при обработке транзакции: {e}")
+                        logger.error(f"Транзакция {action} не выполнена: {rpc_res}, токен {mint}")
+                else:
+                    logger.error(f"Ошибка выполнения RPC-запроса: {rpc_response.status}")
+        except Exception as e:
+            logger.exception(f"Исключение при обработке транзакции: {e}, {response_content}, {mint}, {action}")
 
     async def buy_or_sell(self, mint, amount, action):
         """Объединенная функция для покупки и продажи токена."""
         logger.info(f"Начало операции {action} для {mint} на сумму {amount}")
-        url = 'https://pumpportal.fun/api/trade-local'
         payload = {
             "publicKey": self.config.get("public_key"),
             "action": action,
             "mint": mint,
             "amount": amount,
             "denominatedInSol": "false",
-            "slippage": 4,
+            "slippage": self.config.get("slippage"),
             "priorityFee": self.config.get("priority_fee"),
             "pool": "pump"
         }
-
-        response_content = await self._make_transaction(url, payload)
-        if response_content:
-            await self._process_transaction(response_content, mint, action, amount)
+        async with aiohttp.ClientSession() as session:
+            response_content = await self._make_transaction(self.trade_api_url, payload, session)
+            if response_content:
+                tx_signature = await self._process_transaction(response_content, mint, action, amount, session)
         self.trade_queue.task_done()
+        self.trades_result.append(
+            TradeResult(time=int(time.time()), action=action, mint=mint, amount=amount,
+                        tx_signature=tx_signature, response_content=response_content))
 
     async def trade_worker(self):
         """Фоновый процесс для обработки очереди торгов."""

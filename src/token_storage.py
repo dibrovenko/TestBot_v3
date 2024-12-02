@@ -1,4 +1,13 @@
 from .token import Token
+import logging
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 
 class TokenStorage:
@@ -14,7 +23,7 @@ class TokenStorage:
         :param token: Экземпляр класса Token.
         """
         if mint in self.tokens:
-            raise ValueError(f"Token with mint {mint} already exists.")
+            logger.info(f"Token with mint {mint} already exists.")
         self.tokens[mint] = Token(creation_transaction)
 
     def get_token(self, mint):
