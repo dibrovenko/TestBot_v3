@@ -1,13 +1,9 @@
-from .token import Token
 import logging
+from .token import Token
+from config import setup_logger
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
+logger = setup_logger(name=__name__, log_file=__name__, level=logging.INFO)
 
 
 class TokenStorage:
@@ -24,15 +20,18 @@ class TokenStorage:
         """
         if mint in self.tokens:
             logger.info(f"Token with mint {mint} already exists.")
+            return
+        logger.debug(f"Token {mint} add")
         self.tokens[mint] = Token(creation_transaction)
 
     def get_token(self, mint):
         """
-        Возвращает токен по mint.
+        Возвращает класс токен по mint.
         :param mint: Уникальный идентификатор токена (mint).
         :return: Экземпляр класса Token.
         """
-        return self.tokens.get(mint, None)
+        logger.debug(f"Token {mint} get_token")
+        return self.tokens[mint]
 
     def remove_token(self, mint):
         """
@@ -41,6 +40,7 @@ class TokenStorage:
         """
         if mint in self.tokens:
             del self.tokens[mint]
+            logger.debug(f"Token {mint} removed")
         else:
             raise ValueError(f"Token with mint {mint} not found.")
 

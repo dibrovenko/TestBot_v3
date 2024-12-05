@@ -9,19 +9,16 @@ from solders.commitment_config import CommitmentLevel
 from solders.rpc.requests import SendVersionedTransaction
 from solders.rpc.config import RpcSendTransactionConfig
 from asyncio import Queue
-from config import trade_config
+from config.config import trade_config
 from dataclasses import dataclass
-from datetime import datetime
 from typing import List, Optional
 
 
+from config import setup_logger
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+
+logger = setup_logger(name=__name__, log_file=__name__, level=logging.INFO)
+
 
 
 @dataclass
@@ -48,7 +45,7 @@ class TokenTradingAPI:
 
     async def _make_transaction(self, url, payload, session):
         """Отправляет запрос на выполнение транзакции (покупка или продажа)."""
-        logger.info(f"Отправка запроса на {url} с данными {payload}")
+        logger.debug(f"Отправка запроса на {url} с данными {payload}")
         try:
             async with session.post(url, json=payload, ssl=self.ssl_context) as response:
                 if response.status == 200:
@@ -63,7 +60,7 @@ class TokenTradingAPI:
 
     async def _process_transaction(self, response_content, mint, action, amount, session):
         """Обрабатывает транзакцию и обновляет состояние токенов."""
-        logger.info(f"Обработка транзакции для {mint} с действием {action}")
+        logger.debug(f"Обработка транзакции для {mint} с действием {action}")
         keypair = Keypair.from_base58_string(self.config.get("private_key"))
         tx = VersionedTransaction(VersionedTransaction.from_bytes(response_content).message, [keypair])
         commitment = CommitmentLevel.Confirmed
@@ -90,7 +87,7 @@ class TokenTradingAPI:
 
     async def buy_or_sell(self, mint, amount, action):
         """Объединенная функция для покупки и продажи токена."""
-        logger.info(f"Начало операции {action} для {mint} на сумму {amount}")
+        logger.debug(f"Начало операции {action} для {mint} на сумму {amount}")
         payload = {
             "publicKey": self.config.get("public_key"),
             "action": action,

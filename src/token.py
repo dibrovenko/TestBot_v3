@@ -1,38 +1,34 @@
 import asyncio
-import logging
 import time
+import logging
 import aiohttp
-from .queue_manager import add_trade_to_queue, trade_queue
-from config import token_config, trade_config
+from .queue_manager import add_trade_to_queue
+from config.config import token_config, trade_config
+from config import setup_logger
 
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(name=__name__, log_file=__name__, level=logging.INFO)
 
 
 class Token:
-    history_transaction = []
-    my_transaction = []
-    buyers = set()  # Хранение уникальных покупателей
-    inactive_task_flag = True
-    price_per_purchased_token = None
-    price_per_sold_token = None
 
     def __init__(self, creation_transaction):
         """
         Инициализация токена. Сохраняется информация о токене, время создания и конфигурация импульса.
         """
+        self.history_transaction = []
+        self.my_transaction = []
+        self.buyers = set()  # Хранение уникальных покупателей
+        self.inactive_task_flag = True
+        self.price_per_purchased_token = None
+        self.price_per_sold_token = None
         self.add_transaction(creation_transaction)
         self.mint = creation_transaction["mint"]
         self.url = creation_transaction["uri"]
         self.creation_time = int(time.time())
         self.sell_multiplier = trade_config["sell_multiplier"]
         self.amount = trade_config["amount"]
-        logger.info(f"Token {self.mint} created with initial transaction {creation_transaction}")
+        logger.debug(f"Token {self.mint} created with initial transaction {creation_transaction}")
         asyncio.create_task(self.check_social_activity())
 
     async def check_social_activity(self):
@@ -45,7 +41,7 @@ class Token:
                         missing_fields = [field for field in fields if field not in data]
 
                         if not missing_fields:
-                            logger.info(f"All required fields are present: {fields}")
+                            logger.debug(f"All required fields are present: {fields}")
                             self.sell_multiplier = trade_config["sell_multiplier_with_social_activity"]
                             return True
                     else:
@@ -87,6 +83,7 @@ class Token:
             self.buyers.add(transaction["traderPublicKey"])
 
     def control_actions(self, transaction):
+
         # проверяем были ли ранее сделки с этим токеном и не вополняются ли транзакции по нему сейчас
         if self.my_transaction and self.inactive_task_flag:
             price_for_last_transaction = transaction["vSolInBondingCurve"] / transaction["vTokensInBondingCurve"]

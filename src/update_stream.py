@@ -4,11 +4,10 @@ import logging
 from .token_storage import token_storage
 
 from websocket_client import ws_client
+from config import setup_logger
 
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
-logger = logging.getLogger()
+logger = setup_logger(name=__name__, log_file=__name__, level=logging.INFO)
 
 
 async def subscribe_token_trade(token_address):
@@ -19,7 +18,7 @@ async def subscribe_token_trade(token_address):
     }
     websocket = await ws_client.connect()
     await websocket.send(json.dumps(payload))
-    logger.info(f"Подписались на торговые события для токена: {token_address}")
+    logger.debug(f"Подписались на торговые события для токена: {token_address}")
 
 
 async def unsubscribe_token_trade(token_address):
@@ -31,7 +30,7 @@ async def unsubscribe_token_trade(token_address):
     await asyncio.sleep(4)
     websocket = await ws_client.connect()
     await websocket.send(json.dumps(payload))
-    logger.info(f"Отписались от торговых событий для токена: {token_address}")
+    logger.debug(f"Отписались от торговых событий для токена: {token_address}")
     token_storage.remove_token(token_address)
 
 
@@ -42,7 +41,7 @@ async def subscribe_new_token():
     }
     websocket = await ws_client.connect()
     await websocket.send(json.dumps(payload))
-    logger.info("Подписались на события создания новых токенов.")
+    logger.debug("Подписались на события создания новых токенов.")
 
 
 async def unsubscribe_new_token():
@@ -52,4 +51,4 @@ async def unsubscribe_new_token():
     }
     websocket = await ws_client.connect()
     await websocket.send(json.dumps(payload))
-    logger.info("Отписались от событий создания новых токенов.")
+    logger.debug("Отписались от событий создания новых токенов.")

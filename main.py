@@ -1,28 +1,23 @@
 import asyncio
 import json
 import logging
+import time
+
 import websockets
 
-
-from config import config, handle_messages_config
+from config import handle_messages_config, setup_logger
 from websocket_client import ws_client  # Импортируем экземпляр WebSocket клиента
 from src import (
     token_storage,
     unsubscribe_new_token,
     subscribe_new_token,
     subscribe_token_trade,
-    unsubscribe_token_trade,
     TokenTradingAPI,
     trade_queue,
     add_trade_to_queue
 )
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger("main", "main.log", logging.INFO)
 
 
 async def handle_messages(websocket):
@@ -35,12 +30,13 @@ async def handle_messages(websocket):
             # Ожидаем сообщение с тайм-аутом
             message = await asyncio.wait_for(websocket.recv(), timeout=handle_messages_config["timeout_duration"])
             message_data = json.loads(message)
-            logger.info(f"Получено сообщение: {message}")
+            logger.debug(f"Получено сообщение: {message}")
 
             if message_data.get("txType") == "create":
                 if token_creation_count >= handle_messages_config["max_tokens"]:
                     logger.info("Достигнут лимит по созданным токенам. Прекращаем подписку.")
                     asyncio.create_task(unsubscribe_new_token())
+                    pass
                 else:
                     token_creation_count += 1
                     token_address = message_data["mint"]
@@ -77,12 +73,18 @@ async def main():
     # Получаем WebSocket соединение (создается только один раз)
     websocket = await ws_client.connect()
 
-    try:
+
+
+    await handle_messages(websocket=websocket)
+    # Закрываем WebSocket соединение при завершении работы
+    await ws_client.close()
+
+    """try:
         await handle_messages(websocket=websocket)
         # Закрываем WebSocket соединение при завершении работы
         await ws_client.close()
     except:
-        logger.critical("Завершение программы... ")
+        logger.critical("Завершение программы... ")"""
 
     # Даем время на выполнение задач
     await trade_queue.join()

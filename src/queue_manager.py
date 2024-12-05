@@ -2,12 +2,9 @@ import asyncio
 import logging
 from asyncio import Queue
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from config import setup_logger
+logger = setup_logger(name=__name__, log_file=__name__, level=logging.INFO)
+
 
 # Создаем очередь
 trade_queue = Queue()
